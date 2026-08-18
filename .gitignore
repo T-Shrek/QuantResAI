@@ -1,0 +1,16 @@
+# Virtual Environment
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets & API Keys
+.env
+*.env
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+
+# Optional: ignore output/test resumes if private
+# resumes/*
