@@ -10,14 +10,14 @@ from pypdf import PdfReader
 
 load_dotenv()
 
-API_KEY = os.getenv("GROQ_API_KEY")
+API_KEY=os.getenv("GROQ_API_KEY")
 if not API_KEY:
     raise ValueError("GROQ_API_KEY environment variable not set.")
 
-client = Groq(api_key=API_KEY)
-MODEL_NAME = "openai/gpt-oss-20b"
+client=Groq(api_key=API_KEY)
+MODEL_NAME="openai/gpt-oss-20b"
 
-SKILL_ALIASES = {
+SKILL_ALIASES={
     # Programming languages
     "js": "javascript",
     "javascript": "javascript",
@@ -59,7 +59,7 @@ SKILL_ALIASES = {
     "restful api": "rest",
     "restful apis": "rest"
 }
-WEIGHTS = {
+WEIGHTS={
     "required_skills": 40,
     "preferred_skills": 15,
     "experience": 20,
@@ -71,39 +71,44 @@ class JobD(BaseModel):
     role: str
     required_skills: list[str]
     preferred_skills: list[str]
-    minimum_experience: float | None
+    minimum_experience: float|None
     education_requirements: list[str]
     responsibilities: list[str]
+
 class Experience(BaseModel):
-    company: str | None = None
-    role: str | None = None
-    duration: str | None = None
-    description: str | None = None
-    skills_used: list[str] = Field(default_factory=list)
+    company: str|None=None
+    role: str|None=None
+    duration: str|None=None
+    description: str|None=None
+    skills_used: list[str]=Field(default_factory=list)
+
 class Resume(BaseModel):
-    name: str | None = None
-    email: str | None = None
-    phone: str | None = None
-    total_experience_years: float | None = None
-    skills: list[str] = Field(default_factory=list)
-    experience: list[Experience] = Field(default_factory=list)
-    education: list[str] = Field(default_factory=list)
-    projects: list[str] = Field(default_factory=list)
-    certifications: list[str] = Field(default_factory=list)
+    name: str|None=None
+    email: str|None=None
+    phone: str|None=None
+    total_experience_years: float|None=None
+    skills: list[str]=Field(default_factory=list)
+    experience: list[Experience]=Field(default_factory=list)
+    education: list[str]=Field(default_factory=list)
+    projects: list[str]=Field(default_factory=list)
+    certifications: list[str]=Field(default_factory=list)
+
 class MatchResult(BaseModel):
     score: float
     details: dict
-def read_pdf(file_path: Path) -> str:
-    reader = PdfReader(file_path)
-    text = []
+
+def read_pdf(file_path: Path)->str:
+    reader=PdfReader(file_path)
+    text=[]
     for page in reader.pages:
-        page_text = page.extract_text()
+        page_text=page.extract_text()
         if page_text:
             text.append(page_text)
     return "\n".join(text)
+
 def read_docx(file_path: Path) -> str:
-    doc = Document(file_path)
-    text = [
+    doc=Document(file_path)
+    text=[
         p.text.strip()
         for p in doc.paragraphs
         if p.text.strip()
@@ -114,30 +119,34 @@ def read_docx(file_path: Path) -> str:
                 if cell.text.strip():
                     text.append(cell.text.strip())
     return "\n".join(text)
-def extract_resume_text(file_path: Path) -> str | None:
-    suffix = file_path.suffix.lower()
+
+def extract_resume_text(file_path: Path) -> str|None:
+    suffix=file_path.suffix.lower()
     if suffix == ".pdf":
         return read_pdf(file_path)
     elif suffix == ".docx":
         return read_docx(file_path)
     return None
+
 def normalize_skill(skill: str) -> str:
-    skill = skill.strip().lower()
+    skill=skill.strip().lower()
     return SKILL_ALIASES.get(skill, skill)
+
 def normalize_skills(skills: list[str]) -> list[str]:
-    normalized = []
+    normalized=[]
     for skill in skills:
-        skill = normalize_skill(skill)
+        skill=normalize_skill(skill)
         if skill not in normalized:
             normalized.append(skill)
     return normalized
+
 def parse_job_description(jd_text: str) -> JobD:
-    schema = JobD.model_json_schema()
-    system_prompt = (
+    schema=JobD.model_json_schema()
+    system_prompt=(
         "You are an expert HR assistant. Analyze job descriptions and extract structured details. "
         f"Return ONLY valid JSON strictly adhering to this schema:\n{schema}"
     )
-    response = client.chat.completions.create(
+    response=client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {
@@ -151,25 +160,26 @@ def parse_job_description(jd_text: str) -> JobD:
         ],
         response_format={"type": "json_object"},
     )
-    data = json.loads(
+    data=json.loads(
         response.choices[0].message.content
     )
-    job = JobD(**data)
-    job.required_skills = normalize_skills(
+    job=JobD(**data)
+    job.required_skills=normalize_skills(
         job.required_skills
     )
-    job.preferred_skills = normalize_skills(
+    job.preferred_skills=normalize_skills(
         job.preferred_skills
     )
     return job
-def parse_resume(resume_text: str) -> Resume:
-    schema = Resume.model_json_schema()
-    system_prompt = (
+
+def parse_resume(resume_text: str)->Resume:
+    schema=Resume.model_json_schema()
+    system_prompt=(
         "You are an expert ATS parser. Extract information based on semantic meaning, "
         "not just exact heading names. Include internships in experience. "
         f"Return ONLY valid JSON matching this schema:\n{schema}"
     )
-    response = client.chat.completions.create(
+    response=client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {
@@ -183,56 +193,59 @@ def parse_resume(resume_text: str) -> Resume:
         ],
         response_format={"type": "json_object"},
     )
-    data = json.loads(
+    data=json.loads(
         response.choices[0].message.content
     )
-    resume = Resume(**data)
-    resume.skills = normalize_skills(
+    resume=Resume(**data)
+    resume.skills=normalize_skills(
         resume.skills
     )
     for experience in resume.experience:
-        experience.skills_used = normalize_skills(
+        experience.skills_used=normalize_skills(
             experience.skills_used
         )
     return resume
+
 def calculate_skill_match(
     required_skills,
     resume_skills
 ):
-    required = set(
+    required=set(
         normalize_skills(required_skills)
     )
-    resume = set(
+    resume=set(
         normalize_skills(resume_skills)
     )
     if not required:
         return 100.0, [], []
-    matching = required.intersection(resume)
-    missing = required - resume
-    score = (
-        len(matching) / len(required)
+    matching=required.intersection(resume)
+    missing=required - resume
+    score=(
+        len(matching)/len(required)
     ) * 100
     return (
         score,
         list(matching),
         list(missing)
     )
+
 def calculate_preferred_skill_match(
     preferred_skills,
     resume_skills
 ):
-    preferred = set(
+    preferred=set(
         normalize_skills(preferred_skills)
     )
-    resume = set(
+    resume=set(
         normalize_skills(resume_skills)
     )
     if not preferred:
         return 100.0
-    matching = preferred.intersection(resume)
+    matching=preferred.intersection(resume)
     return (
-        len(matching) / len(preferred)
+        len(matching)/len(preferred)
     ) * 100
+
 def calculate_experience_score(
     candidate_years,
     required_years
@@ -254,50 +267,53 @@ def calculate_education_score(
         return 100.0
     if not resume.education:
         return 0.0
-    education_text = " ".join(
+    education_text=" ".join(
         resume.education
     ).lower()
-    matches = 0
+    matches=0
     for requirement in job.education_requirements:
         if requirement.lower() in education_text:
             matches += 1
     return (
         matches / len(job.education_requirements)
     ) * 100
+
 def calculate_project_score(resume):
     if not resume.projects:
         return 0.0
     if len(resume.projects) >= 2:
         return 100.0
     return 50.0
+
 def calculate_certification_score(resume):
     if resume.certifications:
         return 100.0
     return 0.0
+
 def calculate_weighted_score(job, resume):
-    required_score, matching_skills, missing_skills = calculate_skill_match(
+    required_score, matching_skills, missing_skills=calculate_skill_match(
         job.required_skills,
         resume.skills
     )
-    preferred_score = calculate_preferred_skill_match(
+    preferred_score=calculate_preferred_skill_match(
         job.preferred_skills,
         resume.skills
     )
-    experience_score = calculate_experience_score(
+    experience_score=calculate_experience_score(
         resume.total_experience_years,
         job.minimum_experience
     )
-    education_score = calculate_education_score(
+    education_score=calculate_education_score(
         resume,
         job
     )
-    project_score = calculate_project_score(
+    project_score=calculate_project_score(
         resume
     )
-    certification_score = calculate_certification_score(
+    certification_score=calculate_certification_score(
         resume
     )
-    final_score = (
+    final_score=(
         required_score * WEIGHTS["required_skills"] / 100
         + preferred_score * WEIGHTS["preferred_skills"] / 100
         + experience_score * WEIGHTS["experience"] / 100
@@ -318,15 +334,16 @@ def calculate_weighted_score(job, resume):
         "matching_skills": matching_skills,
         "missing_skills": missing_skills
     }
+
 def evaluate_candidate(
     job: JobD,
     resume: Resume
 ) -> MatchResult:
-    score_result = calculate_weighted_score(
+    score_result=calculate_weighted_score(
         job,
         resume
     )
-    prompt = f"""
+    prompt=f"""
 You are an HR recruiter evaluating a candidate.
 JOB REQUIREMENTS:
 {job.model_dump_json(indent=2)}
@@ -352,7 +369,7 @@ Return ONLY a JSON object with this shape:
     }}
 }}
 """
-    response = client.chat.completions.create(
+    response=client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {
@@ -362,13 +379,14 @@ Return ONLY a JSON object with this shape:
         ],
         response_format={"type": "json_object"},
     )
-    data = json.loads(
+    data=json.loads(
         response.choices[0].message.content
     )
     return MatchResult(**data)
+
 def main():
-    jd_path = Path("job_description.txt")
-    resume_folder = Path("resumes")
+    jd_path=Path("job_description.txt")
+    resume_folder=Path("resumes")
     if not jd_path.exists():
         raise FileNotFoundError(
             f"Job description file '{jd_path}' not found."
@@ -377,14 +395,15 @@ def main():
         raise FileNotFoundError(
             f"Directory '{resume_folder}' not found."
         )
+    
     print("Parsing Job Description...")
-    job_description_text = jd_path.read_text(
+    job_description_text=jd_path.read_text(
         encoding="utf-8"
     )
-    parsed_job = parse_job_description(
+    parsed_job=parse_job_description(
         job_description_text
     )
-    results = []
+    results=[]
     for file_path in resume_folder.iterdir():
         if file_path.suffix.lower() not in [
             ".pdf",
@@ -395,16 +414,16 @@ def main():
             f"Parsing resume: {file_path.name}"
         )
         try:
-            resume_text = extract_resume_text(
+            resume_text=extract_resume_text(
                 file_path
             )
             if not resume_text:
                 continue
-            parsed_resume = parse_resume(
+            parsed_resume=parse_resume(
                 resume_text
             )
             time.sleep(2)
-            evaluation = evaluate_candidate(
+            evaluation=evaluate_candidate(
                 parsed_job,
                 parsed_resume
             )
@@ -460,5 +479,6 @@ def main():
             f"{candidate['name']} - "
             f"Score: {candidate['score']}"
         )
+        
 if __name__ == "__main__":
     main()
