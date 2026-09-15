@@ -467,13 +467,13 @@ def main():
         key=lambda x: x["score"],
         reverse=True
     )
-    print("\n--- TOP CANDIDATES ---")
+    print("\nTOP CANDIDATES AS REQUIRED---")
     for candidate in results[:2]:
         print(
             f"{candidate['name']} - "
             f"Score: {candidate['score']}"
         )
-    print("\n--- BOTTOM CANDIDATES ---")
+    print("\nBOTTOM CANDIDATES AS REQUIRED---")
     for candidate in results[-2:]:
         print(
             f"{candidate['name']} - "
